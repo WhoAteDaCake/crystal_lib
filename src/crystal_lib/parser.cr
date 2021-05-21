@@ -65,6 +65,7 @@ class CrystalLib::Parser
   end
 
   def visit(cursor)
+    # p! cursor
     case cursor.kind
     when .macro_definition?
       visit_macro_definition(cursor)
@@ -187,6 +188,12 @@ class CrystalLib::Parser
         unless struct_or_union.fields.any? { |v| v.name == var.name }
           struct_or_union.fields << var.tap(&.doc = generate_comments(subcursor))
         end
+      elsif subcursor.kind == Clang::CursorKind::UnionDecl
+        result = visit_struct_or_union_declaration(subcursor, :union)
+        struct_or_union.fields += result.fields
+      elsif subcursor.kind == Clang::CursorKind::StructDecl
+        result = visit_struct_or_union_declaration(subcursor, :struct)
+        struct_or_union.fields += result.fields
       end
 
       Clang::ChildVisitResult::Continue
