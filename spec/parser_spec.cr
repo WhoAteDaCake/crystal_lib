@@ -89,6 +89,15 @@ describe Parser do
     fields.first.type.should eq(PointerType.new(UnexposedType.new("foo")))
   end
 
+  it "parses struct with unexposed enum" do
+    nodes = parse("struct point { enum { x, y } foo;  };")
+    type = nodes.last.as(StructOrUnion)
+    fields = type.fields
+    node_ref = fields.first.type.as(NodeRef)
+    enum_def = node_ref.node.as(CrystalLib::Enum)
+    enum_def.values.size.should eq(2)
+  end
+
   it "parses recursive struct" do
     nodes = parse("struct point { struct point* x; };")
     type = nodes.last.as(StructOrUnion)
@@ -111,6 +120,15 @@ describe Parser do
     nodes = parse("struct { int x; int y; };")
     type = nodes.last.as(StructOrUnion)
     type.kind.should eq(:struct)
+    type.name.should eq("")
+    fields = type.fields
+    fields.size.should eq(2)
+  end
+
+  it "parses an anonymous union inside a function definition" do
+    nodes = parse("void func(union{ char x; int y; });")
+    type = nodes[-2].as(StructOrUnion)
+    type.kind.should eq(:union)
     type.name.should eq("")
     fields = type.fields
     fields.size.should eq(2)
@@ -160,6 +178,30 @@ describe Parser do
     str = node_ref.node.as(StructOrUnion)
     fields = str.fields
     fields.size.should eq(2)
+  end
+
+  it "parses typedef and recursive struct" do
+    nodes = parse("typedef struct first { struct second *s; } FIRST; struct second { FIRST *f };")
+
+    struct_first = nodes[-3].as(StructOrUnion)
+    struct_first.kind.should eq(:struct)
+    struct_first.name.should eq("struct first")
+    struct_first.fields.size.should eq(1)
+    struct_first.fields.first.name.should eq("s")
+    struct_first.fields.first.type.as(PointerType).type.as(NodeRef).node.as(StructOrUnion).name.should eq("struct second")
+
+    type_first = nodes[-2].as(Typedef)
+    type_first.name.should eq("FIRST")
+    underlying_struct = type_first.type.as(NodeRef).node.as(StructOrUnion)
+    underlying_struct.kind.should eq(:struct)
+    underlying_struct.name.should eq("struct first")
+
+    struct_second = nodes[-1].as(StructOrUnion)
+    struct_second.kind.should eq(:struct)
+    struct_second.name.should eq("struct second")
+    struct_second.fields.size.should eq(1)
+    struct_second.fields.first.name.should eq("f")
+    struct_second.fields.first.type.as(PointerType).type.as(TypedefType).name.should eq("FIRST")
   end
 
   it "parses typedef enum" do

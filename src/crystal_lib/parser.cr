@@ -144,7 +144,15 @@ class CrystalLib::Parser
   def visit_typedef_declaration(cursor)
     name = cursor.spelling
     type = type(cursor.typedef_decl_underlying_type)
-    named_types[name] = TypedefType.new(name, type)
+
+    if named_types.has_key?(name)
+      # this type definition might have been referenced -and created- before,
+      # in this case we just make sure it refers to the right underlying type
+      named_types[name].as(TypedefType).type = type
+    else
+      named_types[name] = TypedefType.new(name, type)
+    end
+
     Typedef.new(name, type)
   end
 
@@ -255,10 +263,15 @@ class CrystalLib::Parser
     when Clang::TypeKind::Typedef
       spelling = type.spelling
       spelling = spelling.gsub("const ", "").gsub("volatile ", "")
-      if !named_types.has_key?(spelling) && spelling == "__builtin_va_list"
+
+      if named_types.has_key?(spelling)
+        named_types[spelling]
+      elsif spelling == "__builtin_va_list"
         VaListType.new
       else
-        named_types[spelling]? || error_type(spelling)
+        # create a new named type in case the type is referenced here but not yet declared
+        # (underlying type is set to ErrorType and will be overwritten by the declaration)
+        named_types[spelling] = TypedefType.new(spelling, error_type(spelling))
       end
     when Clang::TypeKind::Unexposed,
          Clang::TypeKind::Elaborated
@@ -274,6 +287,8 @@ class CrystalLib::Parser
           NodeRef.new(visit_struct_or_union_declaration(definition, :struct))
         when .union_decl?
           NodeRef.new(visit_struct_or_union_declaration(definition, :union))
+        when .enum_decl?
+          NodeRef.new(visit_enum_declaration(definition))
         else
           UnexposedType.new(type.cursor.spelling)
         end
