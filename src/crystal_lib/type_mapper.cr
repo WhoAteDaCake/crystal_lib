@@ -14,6 +14,7 @@ class CrystalLib::TypeMapper
     @pending_structs = [] of PendingStruct
     @generated = {} of UInt64 => Crystal::ASTNode
     @predefined_structs_or_unions = [] of Crystal::CStructOrUnionDef
+    @anon_count = 0
 
     # When completing a struct's fields we keep that struct and the field name in
     # case we find a nested struct, such as in:#
@@ -237,7 +238,7 @@ class CrystalLib::TypeMapper
       return "#{pending_struct.original_name}_#{name}"
     end
 
-    raise "Bug: missing struct name"
+    "anon_#{@anon_count += 1}"
   end
 
   def declare_alias(name, type)
