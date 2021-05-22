@@ -342,5 +342,24 @@ describe Parser do
       var = nodes.last.as(Function)
       var.doc.should eq("some comment\n\nsome other comment")
     end
+
+    it "parses anonymous structs and unions", focus: true do
+      source = <<-EOS
+        typedef struct test {
+          int using_value;
+          union {
+            struct {
+              char x, y;
+            };
+            int value;
+          };
+        } test;
+      EOS
+      nodes = parse(source)
+      nodes = nodes[nodes.size - 2, nodes.size]
+      type = nodes.first.as(StructOrUnion)
+      type.kind.should eq(:struct)
+      type.fields.map(&.to_s).should eq(["Int using_value;", "Char_S x;", "Char_S y;", "Int value;"] of String)
+    end
   end
 end
