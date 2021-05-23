@@ -262,8 +262,8 @@ describe LibBodyTransformer do
       fun some_struct_with_other_struct_pointer(handle : StructBar*)
     )
 
-    # Verify that an additional struct does not get generated
-    assert_transform "simple",
+  # Verify that an additional struct does not get generated
+  assert_transform "simple",
     %(
       struct SomeStruct1
         x : LibC::Int
@@ -274,5 +274,17 @@ describe LibBodyTransformer do
         x : LibC::Int
       end
       fun just_some_struct_1 : SomeStruct1
+    )
+
+  # Verify that anonymous structs get created
+  assert_transform "simple",
+    "fun some_anon_struct_with_pointer", %(
+      struct SomeAnonStruct
+        x : LibC::Char
+        y : LibC::Char
+        value : LibC::Int
+        using_value : LibC::Int
+      end
+      fun some_anon_struct_with_pointer(handle : SomeAnonStruct*)
     )
 end

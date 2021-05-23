@@ -189,22 +189,85 @@ class CrystalLib::Parser
     end
 
     @cursor_hash_to_node[cursor.hash] = struct_or_union
+    # Maintains last found anonymous struct
+    anon_struct = Array(ASTNode).new
+    # Use this to help main order of fields
+    buffer = Array(Var).new
 
     cursor.visit_children do |subcursor|
       if subcursor.kind == Clang::CursorKind::FieldDecl
         var = visit_var_declaration(subcursor)
-        unless struct_or_union.fields.any? { |v| v.name == var.name }
-          struct_or_union.fields << var.tap(&.doc = generate_comments(subcursor))
+
+        if var.type.is_a?(NodeRef)
+          # Found name for anon struct, clear out
+          anon_struct.clear
         end
-      elsif subcursor.kind == Clang::CursorKind::UnionDecl
-        result = visit_struct_or_union_declaration(subcursor, :union)
-        struct_or_union.fields += result.fields
-      elsif subcursor.kind == Clang::CursorKind::StructDecl
-        result = visit_struct_or_union_declaration(subcursor, :struct)
-        struct_or_union.fields += result.fields
+
+        unless struct_or_union.fields.any? { |v| v.name == var.name }
+          buffer << var.tap(&.doc = generate_comments(subcursor))
+        end
       end
 
+      # If we got here means no one took definition
+      # and this is anonymous struct
+      if anon_struct.size != 0
+        anon_struct.each do |n|
+          case n
+            when StructOrUnion
+              struct_or_union.fields += n.fields
+            when Var
+              struct_or_union.fields << n
+            else
+              puts "# Unexpected item found: #{n}"
+          end
+        end
+        anon_struct.clear
+      end
+
+      # Make sure inserts happen after letover
+      # struct is checked
+      struct_or_union.fields += buffer
+      buffer.clear
+
+      if
+        (
+          subcursor.kind == Clang::CursorKind::UnionDecl ||
+          subcursor.kind == Clang::CursorKind::StructDecl
+        ) && name(subcursor).empty?
+          subcursor.visit_children do | sscursor |
+            # Visit won't handle FieldDecl, need to check manually
+            if sscursor.kind == Clang::CursorKind::FieldDecl
+              var = visit_var_declaration(sscursor)
+              unless struct_or_union.fields.any? { |v| v.name == var.name }
+                anon_struct << var.tap(&.doc = generate_comments(sscursor))
+              end
+            else
+              node = visit(sscursor)
+              if node 
+                anon_struct << node
+              end             
+            end
+
+            Clang::ChildVisitResult::Continue
+          end
+      end
       Clang::ChildVisitResult::Continue
+    end
+
+    # (Leftovers) If we got here means no one took definition
+    # and this is anonymous struct
+    if anon_struct.size != 0
+      anon_struct.each do |n|
+        case n
+          when StructOrUnion
+            struct_or_union.fields += n.fields
+          when Var
+            struct_or_union.fields << n
+          else
+            puts "# Unexpected item found: #{n}"
+        end
+      end
+      anon_struct.clear
     end
 
     struct_or_union
