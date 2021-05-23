@@ -96,7 +96,11 @@ class CrystalLib::TypeMapper
       mapped = map_non_recursive(internal_node)
       @typedef_name = nil
 
-      if internal_type.node.name.empty? || type.name == internal_type.node.unscoped_name
+      if
+        internal_type.node.name.empty? ||
+        type.name == internal_type.node.unscoped_name ||
+        # Crystal removes _ suffix, try to check for it otherwise we'll get duplicates
+        type.name + "_" == internal_type.node.unscoped_name
         return mapped
       end
 

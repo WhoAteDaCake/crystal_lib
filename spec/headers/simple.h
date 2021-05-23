@@ -148,7 +148,7 @@ int __inet_pton(int, char*, void*);
 #define OCTAL 0755
 #define HEXA 0xffff
 
-typedef struct some_anon_struct {
+typedef struct some_anon_struct_ {
   union {
     struct {
       char x, y;
