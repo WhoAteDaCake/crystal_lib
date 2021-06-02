@@ -174,8 +174,29 @@ class CrystalLib::Parser
     function
   end
 
+  def handle_anon_struct_or_union(struct_or_union, anon_structs, idx)
+    # Tracking for named fields
+    anon_structs.each do |n|
+      case n
+        when StructOrUnion
+          # Create anon and register
+          n.name = "#{struct_or_union.name}_#{idx}"
+          field_name = "field_#{idx}"
+          full_name = "#{n.kind} #{n.name}"
+          idx += 1
+          struct_or_union.fields << Var.new(field_name, NodeRef.new(n))
+        when Var
+          struct_or_union.fields << n
+        else
+          puts "# Unexpected item found: #{n}"
+      end
+    end
+    {struct_or_union, idx}
+  end
+
   def visit_struct_or_union_declaration(cursor, kind)
     name = name(cursor)
+    idx = 0
 
     struct_or_union = StructOrUnion.new(kind, name)
 
@@ -211,16 +232,11 @@ class CrystalLib::Parser
       # If we got here means no one took definition
       # and this is anonymous struct
       if anon_struct.size != 0
-        anon_struct.each do |n|
-          case n
-            when StructOrUnion
-              struct_or_union.fields += n.fields
-            when Var
-              struct_or_union.fields << n
-            else
-              puts "# Unexpected item found: #{n}"
-          end
-        end
+        struct_or_union, idx = handle_anon_struct_or_union(
+          struct_or_union,
+          anon_struct,
+          idx
+        )
         anon_struct.clear
       end
 
@@ -234,12 +250,13 @@ class CrystalLib::Parser
           subcursor.kind == Clang::CursorKind::UnionDecl ||
           subcursor.kind == Clang::CursorKind::StructDecl
         ) && name(subcursor).empty?
+          vars = Array(Var).new
           subcursor.visit_children do | sscursor |
             # Visit won't handle FieldDecl, need to check manually
             if sscursor.kind == Clang::CursorKind::FieldDecl
               var = visit_var_declaration(sscursor)
               unless struct_or_union.fields.any? { |v| v.name == var.name }
-                anon_struct << var.tap(&.doc = generate_comments(sscursor))
+                vars << var.tap(&.doc = generate_comments(sscursor))
               end
             else
               node = visit(sscursor)
@@ -247,9 +264,22 @@ class CrystalLib::Parser
                 anon_struct << node
               end             
             end
-
             Clang::ChildVisitResult::Continue
           end
+          # Create new anonymous struct
+          kind =
+            if subcursor.kind == Clang::CursorKind::UnionDecl
+              :union
+            else
+              :struct
+            end
+          child = StructOrUnion.new(kind, "#{name}_child#{idx}")
+          child.fields = vars
+          field_name = "field_#{idx}"
+          full_name = "#{child.kind} #{child.name}"
+          idx += 1
+          named_nodes[full_name] = child
+          struct_or_union.fields << Var.new(field_name, NodeRef.new(child))
       end
       Clang::ChildVisitResult::Continue
     end
@@ -257,16 +287,11 @@ class CrystalLib::Parser
     # (Leftovers) If we got here means no one took definition
     # and this is anonymous struct
     if anon_struct.size != 0
-      anon_struct.each do |n|
-        case n
-          when StructOrUnion
-            struct_or_union.fields += n.fields
-          when Var
-            struct_or_union.fields << n
-          else
-            puts "# Unexpected item found: #{n}"
-        end
-      end
+      struct_or_union, idx = handle_anon_struct_or_union(
+        struct_or_union,
+        anon_struct,
+        idx
+      )
       anon_struct.clear
     end
 
