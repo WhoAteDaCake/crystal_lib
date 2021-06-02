@@ -24,32 +24,32 @@ describe LibBodyTransformer do
   assert_transform "test",
     "fun rgb", %(
       alias UcharT = UInt8
-      union LcuiArgb8888
-        value : Int32T
-        field_0 : LcuiArgb8888Child0
-        field_1 : LcuiArgb8888Child1
-        rgba : Rgba
-      end
-      type LcuiColor = LcuiArgb8888
-      alias Int32T = LibC::Int
-      struct LcuiArgb8888Child0
-        blue : UcharT
-        green : UcharT
-        red : UcharT
-        alpha : UcharT
-      end
-      struct LcuiArgb8888Child1
-        b : UcharT
-        g : UcharT
-        r : UcharT
-        h : UcharT
-      end
-      struct Rgba
-        b : UcharT
-        g : UcharT
-        r : UcharT
-        a : UcharT
-      end
-      fun rgb(r : UcharT, g : UcharT, b : UcharT) : LcuiColor
+  union LcuiArgb8888
+    value : Int32T
+    bgra_0 : LcuiArgb8888Fieldbgra0
+    bgrh_1 : LcuiArgb8888Fieldbgrh1
+    rgba : Rgba
+  end
+  alias LcuiColor = LcuiArgb8888
+  alias Int32T = LibC::Int
+  struct LcuiArgb8888Fieldbgra0
+    blue : UcharT
+    green : UcharT
+    red : UcharT
+    alpha : UcharT
+  end
+  struct LcuiArgb8888Fieldbgrh1
+    b : UcharT
+    g : UcharT
+    r : UcharT
+    h : UcharT
+  end
+  struct Rgba
+    b : UcharT
+    g : UcharT
+    r : UcharT
+    a : UcharT
+  end
+  fun rgb(r : UcharT, g : UcharT, b : UcharT) : LcuiColor
     )
 end
