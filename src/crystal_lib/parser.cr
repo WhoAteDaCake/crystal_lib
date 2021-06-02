@@ -273,9 +273,10 @@ class CrystalLib::Parser
             else
               :struct
             end
-          child = StructOrUnion.new(kind, "#{name}_child#{idx}")
+          prefix = vars.map {|v| v.name[0] }.join("")
+          child = StructOrUnion.new(kind, "#{name}_field#{prefix}_#{idx}")
           child.fields = vars
-          field_name = "field_#{idx}"
+          field_name = "#{prefix}_#{idx}"
           full_name = "#{child.kind} #{child.name}"
           idx += 1
           named_nodes[full_name] = child
