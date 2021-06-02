@@ -281,8 +281,8 @@ class CrystalLib::TypeMapper
     # if underscore_index
     #   name = name[underscore_index + 1..-1]
     # end
-
-    name = name.underscore.capitalize
+    rest = name.lchop
+    name = name[0].upcase + rest
 
     if underscore_index
       name = String.build do |str|
