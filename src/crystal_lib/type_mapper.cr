@@ -66,7 +66,6 @@ class CrystalLib::TypeMapper
 
   def map_internal(type : PointerType)
     pointee_type = type.type
-
     # Check the case of a pointer to an opaque struct
     if opaque_type = opaque_typedef?(pointee_type)
       return declare_typedef(opaque_type.name, pointer_type(path("Void")))
@@ -86,6 +85,7 @@ class CrystalLib::TypeMapper
 
     # Check the case of a typedef to a pointer to an opaque struct
     internal_type = type.type
+
     if internal_type.is_a?(PointerType) && opaque?(internal_type.type)
       return declare_typedef(type.name, pointer_type(path("Void")))
     end
@@ -104,7 +104,7 @@ class CrystalLib::TypeMapper
         return mapped
       end
 
-      declare_typedef(type.name, mapped)
+      declare_alias(type.name, mapped)
     else
       mapped = map_non_recursive(internal_type)
       declare_alias(type.name, mapped)
