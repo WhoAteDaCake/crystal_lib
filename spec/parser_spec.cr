@@ -134,12 +134,13 @@ describe Parser do
     fields.size.should eq(2)
   end
 
-  it "parses struct with nested struct" do
+  it "parses struct with nested struct", focus:true do
     nodes = parse("struct point { struct { int x; int y; } nested; };")
     type = nodes.last.as(StructOrUnion)
     type.kind.should eq(:struct)
     type.name.should eq("struct point")
     fields = type.fields
+    p! fields
     fields.size.should eq(1)
 
     subtype = fields[0].type.as(NodeRef)
@@ -343,7 +344,7 @@ describe Parser do
       var.doc.should eq("some comment\n\nsome other comment")
     end
 
-    it "parses anonymous structs and unions", focus: true do
+    it "parses anonymous structs and unions" do
       source = <<-EOS
         typedef struct test {
           int using_value;
@@ -359,7 +360,7 @@ describe Parser do
       nodes = nodes[nodes.size - 2, nodes.size]
       type = nodes.first.as(StructOrUnion)
       type.kind.should eq(:struct)
-      type.fields.map(&.to_s).should eq(["Int using_value;", "Char_S x;", "Char_S y;", "Int value;"] of String)
+      type.fields.map(&.to_s).should eq(["Int using_value;", "union test_fieldv_0 v_0;", "struct test_1 field_1;"] of String)
     end
   end
 end

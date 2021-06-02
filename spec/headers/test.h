@@ -26,3 +26,7 @@ typedef union LCUI_ARGB8888_ {
 } LCUI_ARGB, LCUI_ARGB8888, LCUI_Color;
 
 LCUI_Color rgb(uchar_t r, uchar_t g, uchar_t b);
+
+struct point {struct { int x; int y; } nested; };
+
+void test(struct point use);

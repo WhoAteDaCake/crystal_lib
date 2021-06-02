@@ -273,16 +273,16 @@ class CrystalLib::TypeMapper
     name = match_prefix(name)
 
     underscore_index = nil
-    name.each_char_with_index do |char, i|
-      break if char != '_'
-      underscore_index = i
-    end
+    # name.each_char_with_index do |char, i|
+    #   break if char != '_'
+    #   underscore_index = i
+    # end
 
-    if underscore_index
-      name = name[underscore_index + 1..-1]
-    end
+    # if underscore_index
+    #   name = name[underscore_index + 1..-1]
+    # end
 
-    name = name.underscore.camelcase
+    name = name.underscore.capitalize
 
     if underscore_index
       name = String.build do |str|

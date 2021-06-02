@@ -177,18 +177,20 @@ class CrystalLib::Parser
   def handle_anon_struct_or_union(struct_or_union, anon_structs, idx)
     # Tracking for named fields
     anon_structs.each do |n|
-      case n
-        when StructOrUnion
-          # Create anon and register
-          n.name = "#{struct_or_union.name}_#{idx}"
-          field_name = "field_#{idx}"
-          full_name = "#{n.kind} #{n.name}"
-          idx += 1
-          struct_or_union.fields << Var.new(field_name, NodeRef.new(n))
-        when Var
-          struct_or_union.fields << n
-        else
-          puts "# Unexpected item found: #{n}"
+      if n.name.empty?
+        # Create anon and register
+        n.name = "#{struct_or_union.name}_#{idx}"
+        field_name = "field_#{idx}"
+        full_name = "#{n.kind} #{n.name}"
+        idx += 1
+        struct_or_union.fields << Var.new(field_name, NodeRef.new(n))
+      else
+        prefix = n.fields.map {|v| v.name[0] }.join("")
+        field_name = "#{prefix}_#{idx}"
+        full_name = "#{n.kind} #{n.name}"
+        idx += 1
+        named_nodes[full_name] = n
+        struct_or_union.fields << Var.new(field_name, NodeRef.new(n))
       end
     end
     {struct_or_union, idx}
@@ -211,7 +213,7 @@ class CrystalLib::Parser
 
     @cursor_hash_to_node[cursor.hash] = struct_or_union
     # Maintains last found anonymous struct
-    anon_struct = Array(ASTNode).new
+    anon_struct = Array(StructOrUnion).new
     # Use this to help main order of fields
     buffer = Array(Var).new
 
@@ -250,6 +252,7 @@ class CrystalLib::Parser
           subcursor.kind == Clang::CursorKind::UnionDecl ||
           subcursor.kind == Clang::CursorKind::StructDecl
         ) && name(subcursor).empty?
+          # Manual variables
           vars = Array(Var).new
           subcursor.visit_children do | sscursor |
             # Visit won't handle FieldDecl, need to check manually
@@ -260,8 +263,10 @@ class CrystalLib::Parser
               end
             else
               node = visit(sscursor)
-              if node 
+              if node.is_a?(StructOrUnion)
                 anon_struct << node
+              else
+                puts "Unexpected node: #{node}"
               end             
             end
             Clang::ChildVisitResult::Continue
@@ -274,13 +279,9 @@ class CrystalLib::Parser
               :struct
             end
           prefix = vars.map {|v| v.name[0] }.join("")
-          child = StructOrUnion.new(kind, "#{name}_field#{prefix}_#{idx}")
+          child = StructOrUnion.new(kind, "#{name}_#{prefix}")
           child.fields = vars
-          field_name = "#{prefix}_#{idx}"
-          full_name = "#{child.kind} #{child.name}"
-          idx += 1
-          named_nodes[full_name] = child
-          struct_or_union.fields << Var.new(field_name, NodeRef.new(child))
+          anon_struct << child
       end
       Clang::ChildVisitResult::Continue
     end
