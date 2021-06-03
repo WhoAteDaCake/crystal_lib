@@ -177,21 +177,11 @@ class CrystalLib::Parser
   def handle_anon_struct_or_union(struct_or_union, anon_structs, idx)
     # Tracking for named fields
     anon_structs.each do |n|
-      if n.name.empty?
-        # Create anon and register
-        n.name = "#{struct_or_union.name}_#{idx}"
-        field_name = "field_#{idx}"
-        full_name = "#{n.kind} #{n.name}"
-        idx += 1
-        struct_or_union.fields << Var.new(field_name, NodeRef.new(n))
-      else
-        prefix = n.fields.map {|v| v.name[0] }.join("")
-        field_name = "#{prefix}_#{idx}"
-        full_name = "#{n.kind} #{n.name}"
-        idx += 1
-        named_nodes[full_name] = n
-        struct_or_union.fields << Var.new(field_name, NodeRef.new(n))
-      end
+      n.name = "#{struct_or_union.name}_#{idx}"
+      field_name = "field_#{idx}"
+      full_name = "#{n.kind} #{n.name}"
+      struct_or_union.fields << Var.new(field_name, NodeRef.new(n))
+      idx += 1
     end
     {struct_or_union, idx}
   end
@@ -199,7 +189,6 @@ class CrystalLib::Parser
   def visit_struct_or_union_declaration(cursor, kind)
     name = name(cursor)
     idx = 0
-
     struct_or_union = StructOrUnion.new(kind, name)
 
     unless name.empty?
@@ -278,8 +267,7 @@ class CrystalLib::Parser
             else
               :struct
             end
-          prefix = vars.map {|v| v.name[0] }.join("")
-          child = StructOrUnion.new(kind, "#{name}_#{prefix}")
+          child = StructOrUnion.new(kind, "")
           child.fields = vars
           anon_struct << child
       end

@@ -11,8 +11,8 @@ private def assert_transform(header, input, output, file = __FILE__, line = __LI
       end
     )).as(Crystal::LibDef)
     lib_def.body = transformer.transform(lib_def.body)
-    puts lib_def.to_s
-    # join_lines(lib_def.to_s).should eq(join_lines("lib LibSome\n#{output}\nend"))
+    # puts lib_def.to_s
+    join_lines(lib_def.to_s).should eq(join_lines("lib LibSome\n#{output}\nend"))
   end
 end
 
@@ -22,6 +22,6 @@ end
 
 describe LibBodyTransformer do
   assert_transform "test",
-    "fun rgb", %(
+    "fun test", %(
     )
 end
