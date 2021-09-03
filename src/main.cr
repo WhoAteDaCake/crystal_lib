@@ -1,4 +1,4 @@
-require "crystal"
+# require "crystal"
 require "./crystal_lib"
 
 node = Crystal::Parser.parse(ARGF.gets_to_end)

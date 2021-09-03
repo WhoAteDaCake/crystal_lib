@@ -50,6 +50,8 @@ class CrystalLib::LibTransformer < Crystal::Transformer
           case value
           when Crystal::StringLiteral
             flags.concat(value.value.split(' '))
+          when Crystal::ArrayLiteral
+            flags += (value.elements.map &.as(Crystal::StringLiteral).value).join(" ").split(' ')
           else
             raise "Include flags value must be a string literal, at #{value.location}"
           end
