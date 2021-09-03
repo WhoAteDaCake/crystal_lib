@@ -61,7 +61,7 @@ module CrystalLib
     end
 
     def transform(node : Crystal::LibDef)
-      nodes = Parser.new(flag_ls, header)
+      nodes = Parser.parse(flag_ls, header)
 
       # headers, flags, prefixes, remove_prefix, options = process_includes
       # nodes = CrystalLib::Parser.parse(headers, flags, options)
