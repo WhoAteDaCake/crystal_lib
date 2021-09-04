@@ -14,8 +14,9 @@ class CrystalLib::LibTransformer < Crystal::Transformer
   end
 
   def transform(node : Crystal::LibDef)
-    headers, flags, prefixes, remove_prefix, options = process_includes
+    headers, flags, prefixes, remove_prefix, options, keep = process_includes
     nodes = CrystalLib::Parser.parse(headers, flags, options)
+    matcher = CrystalLib::Importer.import(keep, nodes)
 
     # puts nodes
     # if prefixes.empty?
@@ -114,6 +115,6 @@ class CrystalLib::LibTransformer < Crystal::Transformer
       end
     end
 
-    {headers.to_s, flags, prefixes, remove_prefix, options}
+    {headers.to_s, flags, prefixes, remove_prefix, options, keep}
   end
 end
