@@ -38,7 +38,6 @@ class CrystalLib::Parser
   def parse
     @tu.cursor.visit_children do |cursor|
       node = visit(cursor)
-      puts node
       if node
         node.doc = generate_comments(cursor)
         @nodes << node

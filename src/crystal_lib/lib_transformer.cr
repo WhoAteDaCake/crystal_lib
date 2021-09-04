@@ -15,9 +15,16 @@ class CrystalLib::LibTransformer < Crystal::Transformer
 
   def transform(node : Crystal::LibDef)
     headers, flags, prefixes, remove_prefix, options, keep = process_includes
-    nodes = CrystalLib::Parser.parse(headers, flags, options)
-    matcher = CrystalLib::Importer.import(keep, nodes)
-
+    nodes = Parser.parse(headers, flags, options)
+    matched = Matcher.required(keep, nodes)
+    # matched.each do |n|
+    #   if n.is_a?(ASTNode)
+    #     if n.name == "SCITER_CREATE_WINDOW_FLAGS"
+    #       p! n
+    #     end
+    #   end
+    # end
+    node.body = Importer.import(matched)
     # puts nodes
     # if prefixes.empty?
     #   node.body = node.body.transform CrystalLib::LibBodyTransformer.new(nodes)

@@ -1,132 +1,123 @@
 module CrystalLib
   class Importer
-    def self.import(keep, nodes)
-      proc = Importer.new(keep, nodes)
-      proc.run
-    end
-
-    def initialize(@keep : Array(String), @nodes : Array(ASTNode))
-      @selected = Array(ASTNode).new
-      @pending = [] of String
-      @defined = Hash(String, Bool).new
-    end
-
-    def mdeps
-      Array(Type | ASTNode | Nil).new
-    end
-
-    def no_deps
-      deps = mdeps
-      deps << nil
-      deps
-    end
-
-    def walk(type : PrimitiveType)
-      sr = type.kind.to_s
-      @defined[sr] = true
-    end
-
-    def walk(type : PointerType | BlockPointerType | ConstantArrayType | IncompleteArrayType)
-      # Because it's a pointer, we only care about underlying type
-      type = type.type
-      sr = type.to_s
-      unless @defined.has_key?(sr)
-        @defined[sr] = true
-        walk(type)
+    def self.import(nodes)
+      importer = new
+      nodes.each do |node|
+        importer.process node
       end
+      importer.result
     end
 
-    def walk(type : FunctionType)
-      sr = type.to_s
-      unless @defined.has_key?(sr)
-        @defined[sr] = true
-        type.inputs.each do |t|
-          walk(t)
+    def initialize
+      @nodes = [] of Crystal::ASTNode
+      @mapper = TypeMapper.new
+    end
+
+    def process(node : Define)
+      name = match_prefix(node)
+      return unless name
+
+      begin
+        value = Crystal::Parser.parse(node.value)
+        return unless value.is_a?(Crystal::NumberLiteral)
+      rescue
+        # Ignore for now
+        return
+      end
+
+      name = Crystal::Path.new(name.upcase)
+      @nodes << Crystal::Assign.new(name, value).tap(&.doc = node.doc)
+    end
+
+    def process(node : Var)
+      name = match_prefix(node)
+      return unless name
+
+      @nodes << Crystal::ExternalVar.new(name, @mapper.map(node.type)).tap(&.doc = node.doc)
+
+      check_pending_definitions
+    end
+
+    def process(node : Function)
+      name = match_prefix(node)
+      return unless name
+
+      name = @mapper.crystal_fun_name(name)
+      args = node.args.map_with_index do |arg, i|
+        Crystal::Arg.new(arg.name.empty? ? "x#{i}" : @mapper.crystal_arg_name(arg.name), restriction: map_type(arg.type))
+      end
+      return_type = map_type(node.return_type)
+      return_type = nil if void?(return_type)
+
+      varargs = node.variadic?
+
+      @nodes << Crystal::FunDef.new(name, args, return_type, varargs, real_name: node.name).tap(&.doc = node.doc)
+
+      check_pending_definitions
+    end
+
+    def process(node : Enum)
+      if node.name.empty?
+        node.values.each do |value|
+          name = match_prefix(value)
+          next unless name
+
+          @nodes << Crystal::Assign.new(Crystal::Path.new(@mapper.crystal_type_name(name)), Crystal::NumberLiteral.new(value.value)).tap(&.doc = value.doc)
         end
-        walk(type.output)
+      else
+        @mapper.map(node)
+        check_pending_definitions
+        # @nodes << @mapper.map(node)
       end
     end
 
-    def walk(type : TypedefType)
-      sr = type.name
-      unless @defined.has_key?(sr)
-        @defined[sr] = true
-        walk(type.type)
-      end
+    def process(node : StructOrUnion)
+      name = match_prefix(node.unscoped_name)
+      return unless name
+
+      @mapper.map(node)
+
+      check_pending_definitions
     end
 
-    def walk(type : UnexposedType)
-      sr = type.name
-      unless @defined.has_key?(sr)
-        raise "Unexposed struct not defined\n#{type}"
-      end
+    def process(node : Typedef)
+      # We skip these because they should be imported when importing functions
     end
 
-    def walk(type : NodeRef)
-      walk(type.node)
+    def process(node)
+      # Nothing to do
     end
 
-    def walk(type : Define)
-      @defined[type.name] = true
+    def check_pending_definitions
+      return if @mapper.pending_definitions.empty?
+
+      @nodes.concat @mapper.pending_definitions.dup
+      @mapper.pending_definitions.clear
     end
 
-    def walk(type : Var)
-      walk(type.type)
+    def match_prefix(node : CrystalLib::ASTNode)
+      match_prefix(node.name)
     end
 
-    def walk(type : Function)
-      sr = type.name
-      unless @defined.has_key?(sr)
-        @defined[sr] = true
-        type.args.each do |a|
-          walk(a)
-        end
-        walk(type.return_type)
-      end
+    def match_prefix(name : String)
+      name
     end
 
-    def walk(type : Arg)
-      walk(type.type)
+    def map_type(type)
+      @mapper.map(type)
     end
 
-    def walk(type : StructOrUnion)
-      sr = type.name
-      unless @defined.has_key?(sr)
-        @defined[sr] = true
-        type.fields.each do |a|
-          walk(a)
-        end
-      end
+    def void?(node)
+      node.is_a?(Crystal::Path) && node.names.size == 1 && node.names.first == "Void"
     end
 
-    def walk(type : Typedef)
-      sr = type.name
-      unless @defined.has_key?(sr)
-        @defined[sr] = true
-        walk(type.type)
-      end
-      {sr, @defined[sr]}
-    end
+    def result
+      # Put external vars at the end
+      external_vars = @nodes.select { |var| var.is_a?(Crystal::ExternalVar) }
+      @nodes.reject! { |var| var.is_a?(Crystal::ExternalVar) }
+      @nodes.concat external_vars
 
-    def walk(type : Enum)
-      @defined[type.name] = true
-    end
-
-    def walk(type : EnumValue)
-      @defined[type.name] = true
-    end
-
-    def walk(type : VaListType | ErrorType)
-      raise "Do not support (VaListType | ErrorType) types"
-    end
-
-    def run
-      selected = @nodes.select do |n|
-        name = n.unscoped_name
-        @keep.index { |k| name.includes?(k) } != nil
-      end
-      selected.map { |n| walk(n) }
-      puts @defined
+      Crystal::Expressions.from(@nodes)
     end
   end
 end
