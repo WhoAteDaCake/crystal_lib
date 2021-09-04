@@ -8,7 +8,7 @@ module CrystalLib
     def initialize(@keep : Array(String), @nodes : Array(ASTNode))
       @selected = Array(ASTNode).new
       @pending = [] of String
-      @defined = Hash(String, Array(Type | ASTNode | Nil)).new
+      @defined = Hash(String, Bool).new
     end
 
     def mdeps
@@ -22,9 +22,8 @@ module CrystalLib
     end
 
     def walk(type : PrimitiveType)
-      sr = type.as(String)
-      @defined[sr] = no_deps
-      {type, [@defined[sr]]}
+      sr = type.kind.to_s
+      @defined[sr] = true
     end
 
     def walk(type : PointerType | BlockPointerType | ConstantArrayType | IncompleteArrayType)
@@ -32,30 +31,28 @@ module CrystalLib
       type = type.type
       sr = type.to_s
       unless @defined.has_key?(sr)
-        @defined[sr] = walk(type)[1]
+        @defined[sr] = true
+        walk(type)
       end
-      {sr, @defined[sr]}
     end
 
     def walk(type : FunctionType)
       sr = type.to_s
       unless @defined.has_key?(sr)
-        deps = mdeps
+        @defined[sr] = true
         type.inputs.each do |t|
-          deps += walk(t)[1]
+          walk(t)
         end
-        deps += walk(type.output)[1]
-        @defined[sr] = deps
+        walk(type.output)
       end
-      {sr, deps}
     end
 
     def walk(type : TypedefType)
       sr = type.name
       unless @defined.has_key?(sr)
-        @defined[sr] = walk(type.type)[1]
+        @defined[sr] = true
+        walk(type.type)
       end
-      {sr, @defined[sr]}
     end
 
     def walk(type : UnexposedType)
@@ -63,7 +60,6 @@ module CrystalLib
       unless @defined.has_key?(sr)
         raise "Unexposed struct not defined\n#{type}"
       end
-      {sr, @defined[sr]}
     end
 
     def walk(type : NodeRef)
@@ -71,7 +67,7 @@ module CrystalLib
     end
 
     def walk(type : Define)
-      {type.name, no_deps}
+      @defined[type.name] = true
     end
 
     def walk(type : Var)
@@ -81,14 +77,12 @@ module CrystalLib
     def walk(type : Function)
       sr = type.name
       unless @defined.has_key?(sr)
-        deps = mdeps
+        @defined[sr] = true
         type.args.each do |a|
-          deps += walk(a)[1]
+          walk(a)
         end
-        deps += walk(type.return_type)[1]
-        @defined[str] = deps
+        walk(type.return_type)
       end
-      {sr, @defined[sr]}
     end
 
     def walk(type : Arg)
@@ -98,29 +92,28 @@ module CrystalLib
     def walk(type : StructOrUnion)
       sr = type.name
       unless @defined.has_key?(sr)
-        deps = mdeps
+        @defined[sr] = true
         type.fields.each do |a|
-          deps += walk(a)[1]
+          walk(a)
         end
-        @defined[str] = deps
       end
-      {sr, @defined[sr]}
     end
 
     def walk(type : Typedef)
       sr = type.name
       unless @defined.has_key?(sr)
-        @defined[str] = walk(type.type)[1]
+        @defined[sr] = true
+        walk(type.type)
       end
       {sr, @defined[sr]}
     end
 
     def walk(type : Enum)
-      {name.name, no_deps}
+      @defined[type.name] = true
     end
 
     def walk(type : EnumValue)
-      {type.name, no_deps}
+      @defined[type.name] = true
     end
 
     def walk(type : VaListType | ErrorType)
