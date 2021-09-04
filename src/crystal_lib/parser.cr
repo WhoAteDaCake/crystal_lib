@@ -25,18 +25,7 @@ class CrystalLib::Parser
     @cursor_hash_to_node = {} of UInt32 => ASTNode
     @idx = Clang::Index.new
     Clang.default_c_include_directories(flags)
-    fixed = "-pthread -I/usr/include/gtk-3.0 -I/usr/include/at-spi2-atk/2.0 -I/usr/include/at-spi-2.0 -I/usr/include/dbus-1.0 -I/usr/lib/x86_64-linux-gnu/dbus-1.0/include -I/usr/include/gtk-3.0 -I/usr/include/gio-unix-2.0 -I/usr/include/cairo -I/usr/include/pango-1.0 -I/usr/include/fribidi -I/usr/include/harfbuzz -I/usr/include/atk-1.0 -I/usr/include/cairo -I/usr/include/pixman-1 -I/usr/include/uuid -I/usr/include/freetype2 -I/usr/include/libpng16 -I/usr/include/gdk-pixbuf-2.0 -I/usr/include/libmount -I/usr/include/blkid -I/usr/include/glib-2.0 -I/usr/lib/x86_64-linux-gnu/glib-2.0/include"
-    # flags += [
-      # "-I/usr/lib/x86_64-linux-gnu/glib-2.0/include",
-      # "-I/usr/include/gtk-3.0",
-      # "-I/usr/include/glib-2.0"
-    # ]
-    flags += fixed.split(" ")
-    flags += [
-      "-I/home/augustinas/projects/sciter-tests/api/include"
-    ]
 
-    # puts flags
     @tu = Clang::TranslationUnit.from_source(
       @idx,
       [Clang::UnsavedFile.new("input.c", source)],
@@ -49,6 +38,7 @@ class CrystalLib::Parser
   def parse
     @tu.cursor.visit_children do |cursor|
       node = visit(cursor)
+      puts node
       if node
         node.doc = generate_comments(cursor)
         @nodes << node
@@ -248,40 +238,39 @@ class CrystalLib::Parser
       struct_or_union.fields += buffer
       buffer.clear
 
-      if
-        (
-          subcursor.kind == Clang::CursorKind::UnionDecl ||
-          subcursor.kind == Clang::CursorKind::StructDecl
-        ) && name(subcursor).empty?
-          # Manual variables
-          vars = Array(Var).new
-          subcursor.visit_children do | sscursor |
-            # Visit won't handle FieldDecl, need to check manually
-            if sscursor.kind == Clang::CursorKind::FieldDecl
-              var = visit_var_declaration(sscursor)
-              unless struct_or_union.fields.any? { |v| v.name == var.name }
-                vars << var.tap(&.doc = generate_comments(sscursor))
-              end
-            else
-              node = visit(sscursor)
-              if node.is_a?(StructOrUnion)
-                anon_struct << node
-              else
-                puts "Unexpected node: #{node}"
-              end             
+      if (
+           subcursor.kind == Clang::CursorKind::UnionDecl ||
+           subcursor.kind == Clang::CursorKind::StructDecl
+         ) && name(subcursor).empty?
+        # Manual variables
+        vars = Array(Var).new
+        subcursor.visit_children do |sscursor|
+          # Visit won't handle FieldDecl, need to check manually
+          if sscursor.kind == Clang::CursorKind::FieldDecl
+            var = visit_var_declaration(sscursor)
+            unless struct_or_union.fields.any? { |v| v.name == var.name }
+              vars << var.tap(&.doc = generate_comments(sscursor))
             end
-            Clang::ChildVisitResult::Continue
+          else
+            node = visit(sscursor)
+            if node.is_a?(StructOrUnion)
+              anon_struct << node
+            else
+              puts "Unexpected node: #{node}"
+            end
           end
-          # Create new anonymous struct
-          kind =
-            if subcursor.kind == Clang::CursorKind::UnionDecl
-              :union
-            else
-              :struct
-            end
-          child = StructOrUnion.new(kind, "")
-          child.fields = vars
-          anon_struct << child
+          Clang::ChildVisitResult::Continue
+        end
+        # Create new anonymous struct
+        kind =
+          if subcursor.kind == Clang::CursorKind::UnionDecl
+            :union
+          else
+            :struct
+          end
+        child = StructOrUnion.new(kind, "")
+        child.fields = vars
+        anon_struct << child
       end
       Clang::ChildVisitResult::Continue
     end

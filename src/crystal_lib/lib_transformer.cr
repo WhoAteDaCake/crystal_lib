@@ -17,12 +17,13 @@ class CrystalLib::LibTransformer < Crystal::Transformer
     headers, flags, prefixes, remove_prefix, options = process_includes
     nodes = CrystalLib::Parser.parse(headers, flags, options)
 
-    if prefixes.empty?
-      node.body = node.body.transform CrystalLib::LibBodyTransformer.new(nodes)
-    else
-      prefix_matcher = PrefixMatcher.new(prefixes, remove_prefix)
-      node.body = CrystalLib::PrefixImporter.import(nodes, prefix_matcher)
-    end
+    # puts nodes
+    # if prefixes.empty?
+    #   node.body = node.body.transform CrystalLib::LibBodyTransformer.new(nodes)
+    # else
+    #   prefix_matcher = PrefixMatcher.new(prefixes, remove_prefix)
+    #   node.body = CrystalLib::PrefixImporter.import(nodes, prefix_matcher)
+    # end
 
     node
   end
@@ -33,6 +34,7 @@ class CrystalLib::LibTransformer < Crystal::Transformer
     options = CrystalLib::Parser::Option::None
     prefixes = [] of String
     remove_prefix = true
+    keep = [] of String
 
     @includes.each do |attr|
       attr.args.each do |arg|
@@ -52,6 +54,16 @@ class CrystalLib::LibTransformer < Crystal::Transformer
             flags.concat(value.value.split(' '))
           when Crystal::ArrayLiteral
             flags += (value.elements.map &.as(Crystal::StringLiteral).value).join(" ").split(' ')
+          else
+            raise "Include flags value must be a string literal, at #{value.location}"
+          end
+        when "keep"
+          value = named_arg.value
+          case value
+          when Crystal::StringLiteral
+            keep.concat(value.value.split(' '))
+          when Crystal::ArrayLiteral
+            keep += (value.elements.map &.as(Crystal::StringLiteral).value).join(" ").split(' ')
           else
             raise "Include flags value must be a string literal, at #{value.location}"
           end
