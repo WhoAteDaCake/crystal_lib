@@ -112,6 +112,15 @@ module CrystalLib
     end
 
     def result
+      # Remove duplication
+      @nodes.uniq!
+      @nodes.select! do |n|
+        if n.is_a?(Crystal::Alias)
+          n.name.to_s != n.value.to_s
+        else
+          true
+        end
+      end
       # Put external vars at the end
       external_vars = @nodes.select { |var| var.is_a?(Crystal::ExternalVar) }
       @nodes.reject! { |var| var.is_a?(Crystal::ExternalVar) }
