@@ -1,8 +1,0 @@
-#!/usr/bin/env bash
-
-fwatcher \
-  -a --on-start \
-  --dir ./src \
-  --dir ./spec \
-  execute crystal spec ./spec/test_tmp.cr 
-  # execute crystal spec ./spec/lib_body_transformer_spec.cr 

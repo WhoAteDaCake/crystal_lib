@@ -17,23 +17,28 @@ class CrystalLib::LibTransformer < Crystal::Transformer
     headers, flags, prefixes, remove_prefix, options, keep, ends_with = process_includes
     nodes = Parser.parse(headers, flags, options)
     matched = Matcher.required(keep, ends_with, nodes)
-    # matched.each do |n|
-    #   if n.is_a?(ASTNode)
-    #     if n.name == "SCITER_CREATE_WINDOW_FLAGS"
-    #       p! n
-    #     end
-    #   end
-    # end
+    # matched.each { |n| puts n }
     node.body = Importer.import(matched)
-    # puts nodes
-    # if prefixes.empty?
-    #   node.body = node.body.transform CrystalLib::LibBodyTransformer.new(nodes)
-    # else
-    #   prefix_matcher = PrefixMatcher.new(prefixes, remove_prefix)
-    #   node.body = CrystalLib::PrefixImporter.import(nodes, prefix_matcher)
-    # end
-
+    # puts node.body
     node
+  end
+
+  def merge_flags(value)
+    case value
+    when Crystal::StringLiteral
+      value.value.split(' ')
+    when Crystal::ArrayLiteral
+      value.elements.reduce([] of String) do |acc, value|
+        acc + merge_flags(value)
+      end
+      # flags += (value.elements.map &.as(Crystal::StringLiteral).value).join(" ").split(' ')
+    when Crystal::Call
+      # Assumes `` command call
+      cmd = value.args[0].as(Crystal::StringLiteral).value
+      `#{cmd}`.split(' ')
+    else
+      raise "Include flags value must be a string literal, found #{typeof(value)}"
+    end
   end
 
   def process_includes
@@ -57,15 +62,16 @@ class CrystalLib::LibTransformer < Crystal::Transformer
       attr.named_args.try &.each do |named_arg|
         case named_arg.name
         when "flags"
-          value = named_arg.value
-          case value
-          when Crystal::StringLiteral
-            flags.concat(value.value.split(' '))
-          when Crystal::ArrayLiteral
-            flags += (value.elements.map &.as(Crystal::StringLiteral).value).join(" ").split(' ')
-          else
-            raise "Include flags value must be a string literal, at #{value.location}"
-          end
+          # value = named_arg.value
+          flags = merge_flags(named_arg.value)
+          # case value
+          # when Crystal::StringLiteral
+          #   flags.concat(value.value.split(' '))
+          # when Crystal::ArrayLiteral
+          #   # flags += (value.elements.map &.as(Crystal::StringLiteral).value).join(" ").split(' ')
+          # else
+          #   raise "Include flags value must be a string literal, at #{value.location}"
+          # end
         when "keep"
           value = named_arg.value
           case value

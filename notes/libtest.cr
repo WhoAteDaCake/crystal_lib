@@ -1,7 +1,7 @@
 @[Include(
-  "/home/augustinas/projects/crystal_lib/notes/test.h",
+  "./headers/test.h",
   flags: [] of String,
-  keep: %w(main)
+  keep: %w(LCUI)
 )]
 lib LibScitter
 end

@@ -15,6 +15,7 @@ class CrystalLib::TypeMapper
     @generated = {} of UInt64 => Crystal::ASTNode
     @predefined_structs_or_unions = [] of Crystal::CStructOrUnionDef
     @anon_count = 0
+    @test_count = 0
 
     # When completing a struct's fields we keep that struct and the field name in
     # case we find a nested struct, such as in:#
@@ -85,22 +86,23 @@ class CrystalLib::TypeMapper
 
     # Check the case of a typedef to a pointer to an opaque struct
     internal_type = type.type
+    # puts "#{internal_type} #{internal_type.is_a?(NodeRef)}"
 
     if internal_type.is_a?(PointerType) && opaque?(internal_type.type)
       return declare_typedef(type.name, pointer_type(path("Void")))
     end
 
     if internal_type.is_a?(NodeRef)
+      # p! internal_type.unscoped_name
       internal_node = internal_type.node
       @typedef_name = type.name
       mapped = map_non_recursive(internal_node)
       @typedef_name = nil
 
-      if
-        internal_type.node.name.empty? ||
-        type.name == internal_type.node.unscoped_name ||
-        # Crystal removes _ suffix, try to check for it otherwise we'll get duplicates
-        type.name + "_" == internal_type.node.unscoped_name
+      if internal_type.node.name.empty? ||
+         type.name == internal_type.node.unscoped_name ||
+         # Crystal removes _ suffix, try to check for it otherwise we'll get duplicates
+         type.name + "_" == internal_type.node.unscoped_name
         return mapped
       end
 
@@ -167,6 +169,7 @@ class CrystalLib::TypeMapper
   end
 
   def map_internal(type : CrystalLib::StructOrUnion)
+    puts type
     untouched_struct_name = check_anonymous_name(type.unscoped_name)
     struct_name = crystal_type_name(untouched_struct_name)
 
@@ -188,7 +191,6 @@ class CrystalLib::TypeMapper
 
       @pending_definitions << struct_def unless @generated.has_key?(type.object_id)
     end
-
     path(struct_name)
   end
 
@@ -228,6 +230,13 @@ class CrystalLib::TypeMapper
   end
 
   def path(path)
+    if path == "LcuiBackgroundPosition"
+      @test_count += 1
+      if @test_count == 2
+        raise "test_fail"
+      end
+      puts "#{path} #{@test_count}"
+    end
     Crystal::Path.new(path)
   end
 

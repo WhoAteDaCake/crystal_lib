@@ -1,3 +1,11 @@
-#include "gtk/gtk.h"
+#include <stdbool.h>
 
-void grab(GtkWindow* window);
+typedef struct LCUI_BackgroundPosition {
+	int using_value;
+	union {
+		struct {
+			bool x, y;
+		};
+		int value;
+	};
+} LCUI_BackgroundPosition;
