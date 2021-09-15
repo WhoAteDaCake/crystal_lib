@@ -1,11 +1,11 @@
 module CrystalLib
   class Matcher
-    def self.required(keep, nodes)
-      proc = new(keep, nodes)
+    def self.required(keep, ends_with, nodes)
+      proc = new(keep, ends_with, nodes)
       proc.required_nodes
     end
 
-    def initialize(@keep : Array(String), @nodes : Array(ASTNode))
+    def initialize(@keep : Array(String), @ends_with : Array(String), @nodes : Array(ASTNode))
       @selected = Array(ASTNode).new
       @pending = [] of String
       @defined = Hash(Type | ASTNode, Bool).new
@@ -104,7 +104,7 @@ module CrystalLib
       # Filters down the types we need
       selected = @nodes.select do |n|
         name = n.unscoped_name
-        @keep.index { |k| name.starts_with?(k) } != nil
+        @keep.index { |k| name.starts_with?(k) } != nil || @ends_with.index { |k| name.ends_with?(k) }
       end
       # Walk the
       selected.map { |n| walk(n) }

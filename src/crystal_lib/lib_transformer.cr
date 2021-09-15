@@ -14,9 +14,9 @@ class CrystalLib::LibTransformer < Crystal::Transformer
   end
 
   def transform(node : Crystal::LibDef)
-    headers, flags, prefixes, remove_prefix, options, keep = process_includes
+    headers, flags, prefixes, remove_prefix, options, keep, ends_with = process_includes
     nodes = Parser.parse(headers, flags, options)
-    matched = Matcher.required(keep, nodes)
+    matched = Matcher.required(keep, ends_with, nodes)
     # matched.each do |n|
     #   if n.is_a?(ASTNode)
     #     if n.name == "SCITER_CREATE_WINDOW_FLAGS"
@@ -43,6 +43,7 @@ class CrystalLib::LibTransformer < Crystal::Transformer
     prefixes = [] of String
     remove_prefix = true
     keep = [] of String
+    ends_with = [] of String
 
     @includes.each do |attr|
       attr.args.each do |arg|
@@ -72,6 +73,16 @@ class CrystalLib::LibTransformer < Crystal::Transformer
             keep.concat(value.value.split(' '))
           when Crystal::ArrayLiteral
             keep += (value.elements.map &.as(Crystal::StringLiteral).value).join(" ").split(' ')
+          else
+            raise "Include flags value must be a string literal, at #{value.location}"
+          end
+        when "ends_with"
+          value = named_arg.value
+          case value
+          when Crystal::StringLiteral
+            ends_with.concat(value.value.split(' '))
+          when Crystal::ArrayLiteral
+            ends_with += (value.elements.map &.as(Crystal::StringLiteral).value).join(" ").split(' ')
           else
             raise "Include flags value must be a string literal, at #{value.location}"
           end
@@ -122,6 +133,6 @@ class CrystalLib::LibTransformer < Crystal::Transformer
       end
     end
 
-    {headers.to_s, flags, prefixes, remove_prefix, options, keep}
+    {headers.to_s, flags, prefixes, remove_prefix, options, keep, ends_with}
   end
 end
