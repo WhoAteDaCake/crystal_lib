@@ -169,7 +169,6 @@ class CrystalLib::TypeMapper
   end
 
   def map_internal(type : CrystalLib::StructOrUnion)
-    puts type
     untouched_struct_name = check_anonymous_name(type.unscoped_name)
     struct_name = crystal_type_name(untouched_struct_name)
 
@@ -230,13 +229,6 @@ class CrystalLib::TypeMapper
   end
 
   def path(path)
-    if path == "LcuiBackgroundPosition"
-      @test_count += 1
-      if @test_count == 2
-        raise "test_fail"
-      end
-      puts "#{path} #{@test_count}"
-    end
     Crystal::Path.new(path)
   end
 
