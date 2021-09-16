@@ -240,7 +240,7 @@ class CrystalLib::TypeMapper
 
     unless @structs_stack.empty?
       pending_struct, name = @structs_stack.last
-      return "#{pending_struct.original_name}_#{name}"
+      return "#{pending_struct.original_name}_f_#{name}"
     end
 
     "anon_#{@anon_count += 1}"
